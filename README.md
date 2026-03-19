@@ -208,7 +208,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## 🙏 Acknowledgments
 
 - Kaggle MRI dataset contributors
-- RIMS (Regional Institute of Medical Sciences) for clinical MRI data
+- RIMS (Rajendra Institute of Medical Sciences) for clinical MRI data
 - Open-source community for PyTorch, scikit-learn, and related libraries
 
 ---
