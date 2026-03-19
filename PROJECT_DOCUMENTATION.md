@@ -3,25 +3,30 @@
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Medical Background](#medical-background)
-3. [Technical Architecture](#technical-architecture)
-4. [Data Structure and Format](#data-structure-and-format)
-5. [Data Preprocessing Pipeline](#data-preprocessing-pipeline)
-6. [Deep Learning Model Architecture](#deep-learning-model-architecture)
-7. [Training Process](#training-process)
-8. [Evaluation Metrics](#evaluation-metrics)
-9. [Technologies and Libraries](#technologies-and-libraries)
-10. [File Structure](#file-structure)
-11. [Key Concepts Explained](#key-concepts-explained)
+3. [Model Versions](#model-versions)
+4. [Technical Architecture](#technical-architecture)
+5. [Data Structure and Format](#data-structure-and-format)
+6. [Data Preprocessing Pipeline](#data-preprocessing-pipeline)
+7. [Deep Learning Model Architecture](#deep-learning-model-architecture)
+8. [Training Process](#training-process)
+9. [Evaluation Metrics](#evaluation-metrics)
+10. [Technologies and Libraries](#technologies-and-libraries)
+11. [File Structure](#file-structure)
+12. [Key Concepts Explained](#key-concepts-explained)
 
 ---
 
 ## 1. Project Overview
 
 ### What This Project Does
-This is a **medical imaging AI system** that uses deep learning to automatically detect Anterior Cruciate Ligament (ACL) tears from knee MRI scans. The system can classify knee MRI images into three categories:
+This is a **medical imaging AI system** that uses deep learning to automatically detect Anterior Cruciate Ligament (ACL) tears from knee MRI scans. The project evolved through **three model versions** (V1, V3, V4), each improving upon the previous approach with different data sources, preprocessing techniques, and model architectures.
+
+The system can classify knee MRI images into:
 - **Class 0**: No ACL tear (healthy knee)
 - **Class 1**: Partial ACL tear (ligament is damaged but not completely torn)
 - **Class 2**: Complete ACL tear (ligament is completely ruptured)
+
+> **Note**: V2 was an intermediate experimental iteration that was not retained. The project progresses from V1 directly to V3.
 
 ### Primary Goal
 The goal is to assist radiologists and medical professionals by providing an automated preliminary diagnosis tool that can:
@@ -32,9 +37,9 @@ The goal is to assist radiologists and medical professionals by providing an aut
 
 ### Project Type
 This is a **supervised learning** problem, specifically:
-- **Binary Classification** (as implemented): Tear vs No Tear
-- **Multi-class Classification** (potential): No Tear vs Partial Tear vs Complete Tear
-- **Computer Vision** task using **3D Medical Imaging**
+- **Binary Classification** (V1, V3, V4): Tear vs No Tear
+- **Multi-class Classification** (V4 experimental): No Tear vs Partial Tear vs Complete Tear
+- **Computer Vision** task using **3D Medical Imaging** (V1) and **2D Medical Imaging** (V3, V4)
 
 ---
 
@@ -74,14 +79,102 @@ The **Anterior Cruciate Ligament (ACL)** is one of the four major ligaments in t
 
 ---
 
-## 3. Technical Architecture
+## 3. Model Versions
+
+### Version Evolution Summary
+
+```
+V1 (3D CNN, Kaggle)
+    ↓ Learned: 3D approach works but limited by single data source
+V3 (2D CNN, RIMS Hospital)
+    ↓ Shifted to 2D approach with real clinical DICOM data
+V4 (2D CNN, Kaggle + RIMS Combined)
+    ↓ Combined datasets for larger, more diverse training set
+    ↓ Explored multi-class (3-class) classification
+```
+
+### V1 — 3D CNN on Kaggle Data
+
+**Location**: `V1_3D_kaggle/`
+
+The original model using 3D convolutions to process volumetric MRI data directly.
+
+| Aspect | Details |
+|--------|---------|
+| **Input** | 3D MRI volumes (16×128×128) from `.pck` files |
+| **Architecture** | Custom 3D CNN: 4 conv blocks (32→64→128→256 filters) |
+| **Classification** | Binary (Tear vs No Tear) |
+| **Dataset** | Kaggle: 917 scans (736 available) |
+| **Loss** | BCELoss with optional class weighting |
+| **Optimizer** | Adam (lr=0.001) with ReduceLROnPlateau |
+| **Key Output** | `acl_detector_model.pth` (~14 MB) |
+
+**Strengths**: Preserves 3D spatial context between MRI slices.
+**Limitations**: Computationally expensive; single data source; smaller effective dataset.
+
+### V3 — 2D CNN on RIMS Hospital Data
+
+**Location**: `V3_2D_RIMS/`
+
+Shifted to a 2D approach using real clinical data sourced from RIMS (Regional Institute of Medical Sciences) hospital. Includes custom preprocessing scripts to convert DICOM files to model-ready formats.
+
+| Aspect | Details |
+|--------|---------|
+| **Input** | 2D sagittal MRI slices (224×224) from `.npz` files |
+| **Architecture** | 2D CNN (improved architecture / transfer learning) |
+| **Classification** | Binary (Tear vs No Tear) |
+| **Dataset** | RIMS hospital clinical DICOM scans |
+| **Preprocessing** | DICOM → sagittal extraction → resizing → `.npz` |
+| **Training** | Local + Google Colab |
+
+**Key Preprocessing Scripts**:
+- `preprocess_dicom_dataset.py` — Full DICOM to `.npz` pipeline
+- `resize_dataset.py` — Standardizes slice dimensions to 224×224
+
+**Strengths**: Uses real clinical data; 2D approach is faster and more memory-efficient.
+**Limitations**: Smaller dataset from a single hospital.
+
+### V4 — 2D CNN on Combined Data
+
+**Location**: `V4_2D_kaggle+RIMS/`
+
+Final iteration combining both datasets for a larger, more diverse training set. Also included an experimental 3-class classification attempt.
+
+| Aspect | Details |
+|--------|---------|
+| **Input** | 2D slices (224×224) from combined `.npz` dataset |
+| **Architecture** | 2D CNN for combined dataset |
+| **Classification** | Binary (primary) + 3-class (experimental) |
+| **Dataset** | Combined Kaggle + RIMS (~1195 samples) |
+| **Key Output** | `best_acl_model_combined.pth` (~17 MB) |
+
+**Notebooks**:
+- `ACL_Training_Combined.ipynb` — Binary classification
+- `ACL_Training_Combined_3classes.ipynb` — 3-class experiment (No Tear / Partial / Complete)
+- `PNG_to_Prediction.ipynb` — Inference pipeline for PNG images
+
+**Strengths**: Largest and most diverse dataset; explored multi-class classification.
+
+### Grad-CAM Interpretability
+
+**Location**: `Gradcam/`
+
+Uses Gradient-weighted Class Activation Mapping (Grad-CAM) to visualize which regions of the MRI the model focuses on when making predictions — crucial for medical AI trust and validation.
+
+- `ACL_GradCAM_Visualization.ipynb` — Generates heatmap overlays
+- `gradcam_outputs/` — Contains sample correct and incorrect prediction visualizations
+
+---
+
+## 4. Technical Architecture
 
 ### Overall System Design
 
+**V1 (3D Approach)**:
 ```
 Input: 3D MRI Volume (.pck file)
     ↓
-Preprocessing Pipeline
+ROI Extraction + Normalization + Resize (16×128×128)
     ↓
 3D Convolutional Neural Network
     ↓
@@ -90,23 +183,37 @@ Binary Classification
 Output: Tear (1) or No Tear (0) + Confidence Score
 ```
 
-### Why 3D CNN Instead of 2D CNN?
+**V3/V4 (2D Approach)**:
+```
+Input: DICOM / MRI Volume
+    ↓
+Sagittal Slice Extraction + Resize (224×224)
+    ↓
+2D Convolutional Neural Network
+    ↓
+Binary / Multi-class Classification
+    ↓
+Output: Prediction + Confidence Score
+```
 
-**3D Convolution** is essential because:
-- MRI scans are volumetric (depth × height × width)
-- ACL tears may be visible in certain slices but not others
-- Spatial relationships between slices contain diagnostic information
-- A 2D CNN would lose inter-slice context
+### Why 3D CNN (V1) vs 2D CNN (V3/V4)?
 
-**Comparison**:
-- **2D CNN**: Processes each slice independently → loses 3D context
-- **3D CNN**: Processes volume as a whole → captures spatial relationships
+**3D Convolution (V1)**:
+- Processes volume as a whole → captures spatial relationships between slices
+- Higher computational cost and memory usage
+- Requires consistent 3D volume input
+
+**2D Convolution (V3/V4)**:
+- Processes individual sagittal slices → faster training
+- Can leverage pre-trained 2D models (transfer learning)
+- Loses some inter-slice context but gains efficiency
+- More practical for clinical deployment
 
 ---
 
-## 4. Data Structure and Format
+## 5. Data Structure and Format
 
-### Dataset Organization
+### Kaggle Dataset (V1)
 
 ```
 DATASET/MRI/
@@ -115,18 +222,10 @@ DATASET/MRI/
 │   ├── 0000.pck          # MRI scan files
 │   ├── 0001.pck
 │   └── ...
-├── vol02/                 # Volume folder 2
-├── vol03/
-├── vol04/
-├── vol05/
-├── vol06/
-├── vol07/
-└── vol08/
+├── vol02/ ... vol08/      # Volume folders 2-8
 ```
 
-### Metadata CSV Structure
-
-**metadata.csv** contains the following columns:
+#### Metadata CSV Structure
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
@@ -142,9 +241,41 @@ DATASET/MRI/
 | `roiDepth` | Integer | Depth of the ROI (number of slices) | 16 |
 | `volumeFilename` | String | Name of the .pck file containing MRI data | 0000.pck |
 
+### RIMS Hospital Dataset (V3)
+
+Processed from DICOM files using `preprocess_dicom_dataset.py`:
+
+```
+DATASET/
+├── processed_sagittal/              # Extracted sagittal slices
+│   ├── 001_ACL.npz
+│   ├── 002_PARTIAL_ACL.npz
+│   └── ...
+├── processed_sagittal_resized/      # Resized to 224×224
+│   ├── 001_ACL.npz
+│   └── ...
+```
+
+### Combined Dataset (V4)
+
+```
+DATASET/combined/
+├── metadata.csv           # Labels for all samples
+├── 001_ACL.npz           # Compressed 2D slices
+├── 002_PARTIAL_ACL.npz
+├── ...
+├── MRI_329637_NORMAL.npz  # Kaggle-sourced samples
+├── MRI_390116_NORMAL.npz
+└── ...
+```
+
+**Naming Convention**:
+- `{ID}_{DIAGNOSIS}.npz` for RIMS data (e.g., `001_ACL.npz`)
+- `MRI_{ID}_{DIAGNOSIS}.npz` for Kaggle data (e.g., `MRI_329637_NORMAL.npz`)
+
 ### What is ROI (Region of Interest)?
 
-**ROI** = The specific 3D region in the MRI scan where the ACL is located
+**ROI** = The specific 3D region in the MRI scan where the ACL is located (used in V1)
 
 **Why ROI is Important**:
 - MRI scans contain the entire knee, but we only need the ACL region
@@ -161,141 +292,101 @@ Extract ROI: [z=10:26, y=120:248, x=50:114]
 ROI Volume: [16 slices, 128×64 pixels]
 ```
 
-### MRI File Format (.pck)
+### MRI File Formats
 
-**.pck files** are Python pickle files containing:
-- **3D NumPy array**: Shape is typically (num_slices, height, width)
-- **Data type**: Usually float32 or uint16
-- **Intensity values**: Represent tissue signal intensity from MRI scanner
-
-**Example**:
+#### .pck files (V1 — Kaggle)
+Python pickle files containing 3D NumPy arrays:
 ```python
-# Loading a .pck file
 with open('0000.pck', 'rb') as f:
     mri_volume = pickle.load(f)
+# Shape: (40, 256, 256) — 40 slices, each 256×256 pixels
+```
 
-# Shape: (40, 256, 256)
-# 40 slices, each 256×256 pixels
+#### .npz files (V3/V4 — Processed)
+Compressed NumPy archives containing 2D sagittal slices:
+```python
+data = np.load('001_ACL.npz')
+slices = data['arr_0']  # 2D array of sagittal slices
 ```
 
 ### Dataset Statistics
 
-From the README:
+**V1 (Kaggle)**:
 - **Total Samples**: 917 MRI scans in metadata
-- **Available Files**: 736 scans (some files may be missing)
-- **Class Distribution**:
-  - No Tear (0): 690 samples (75%)
-  - Partial Tear (1): ~150 samples
-  - Complete Tear (2): ~77 samples
-- **After Binary Conversion**:
-  - No Tear (0): 690 samples (75%)
-  - Any Tear (1): 227 samples (25%)
+- **Available Files**: 736 scans
+- **Class Distribution**: No Tear 690 (75%) | Tear 227 (25%)
 
-**Class Imbalance**: This is an imbalanced dataset, which affects training strategy.
+**V4 (Combined)**:
+- **Total Samples**: ~1195 combined entries
+- **Sources**: Kaggle + RIMS hospital
 
 ---
 
-## 5. Data Preprocessing Pipeline
+## 6. Data Preprocessing Pipeline
 
-### Step-by-Step Preprocessing
+### V1 — 3D Pipeline (Kaggle Data)
 
 #### Step 1: File Location
 ```python
 def find_pck_file(data_dir, filename):
-    # Searches vol01 through vol08 folders
     for vol_num in range(1, 9):
         vol_folder = f"vol{vol_num:02d}"
         path = os.path.join(data_dir, vol_folder, filename)
         if os.path.exists(path):
             return path
 ```
-**Purpose**: Locate the MRI file across multiple volume folders
 
 #### Step 2: Load MRI Volume
 ```python
 with open(file_path, 'rb') as f:
     mri_volume = pickle.load(f)
-# Result: 3D numpy array
 ```
-**Purpose**: Load the pickled NumPy array into memory
 
 #### Step 3: Extract ROI
 ```python
 roi = mri_volume[z:z+depth, y:y+height, x:x+width]
 ```
-**Purpose**: Crop the volume to the ACL region using metadata coordinates
 
 #### Step 4: Normalization
 ```python
 roi = (roi - roi.min()) / (roi.max() - roi.min() + 1e-8)
 ```
-**What This Does**:
-- Scales all pixel values to the range [0, 1]
-- **Why**: Neural networks perform better with normalized inputs
-- **Formula**: `normalized = (value - min) / (max - min)`
-- **epsilon (1e-8)**: Prevents division by zero
-
-**Example**:
-```
-Original: [100, 500, 1000, 2000]
-Min: 100, Max: 2000
-Normalized: [0.0, 0.21, 0.47, 1.0]
-```
+Scales all pixel values to `[0, 1]`. The epsilon `(1e-8)` prevents division by zero.
 
 #### Step 5: Resizing
 ```python
 from skimage.transform import resize
 roi = resize(roi, (16, 128, 128), mode='constant', anti_aliasing=True)
 ```
-**Purpose**: Standardize all ROI volumes to the same size
-
-**Why Resize?**:
-- Neural networks require fixed input dimensions
-- Different ROIs have different sizes in the original data
-- Target size (16, 128, 128) balances detail vs computation
-
-**Parameters Explained**:
-- `mode='constant'`: Pad with zeros if needed
-- `anti_aliasing=True`: Smooth downsampling to prevent artifacts
-- `preserve_range=True`: Keep values in [0, 1] range
-
-**What Happens**:
-```
-Input ROI:  [24 slices, 142×88 pixels]
-           ↓ (interpolation)
-Output ROI: [16 slices, 128×128 pixels]
-```
+Standardizes all ROI volumes to the same dimensions.
 
 #### Step 6: Convert to PyTorch Tensor
 ```python
 x = torch.tensor(roi).unsqueeze(0)
+# Shape: (16, 128, 128) → (1, 16, 128, 128) [channels, depth, height, width]
 ```
-**Shape Transformation**:
-```
-roi shape:      (16, 128, 128)          # depth, height, width
-unsqueeze(0):   (1, 16, 128, 128)       # channels, depth, height, width
-```
-**Why add channel dimension?**: CNN expects input format [batch, channels, depth, height, width]
 
-### Data Augmentation (Not Implemented, But Important)
+### V3 — 2D Pipeline (RIMS DICOM Data)
 
-**Potential Augmentations**:
-- **Rotation**: Rotate volume by small angles (±10°)
-- **Flipping**: Horizontal/vertical flips
-- **Intensity Variation**: Adjust brightness/contrast
-- **Elastic Deformation**: Simulate tissue deformation
-- **Noise Addition**: Add Gaussian noise to simulate different scanner settings
+The `preprocess_dicom_dataset.py` script handles the full pipeline:
 
-**Why Not Used Here**:
-- Increases training time
-- Requires careful implementation for medical images
-- Could be added to improve model performance
+1. **Read DICOM series** from hospital scanner output
+2. **Extract sagittal plane** slices from the 3D volume
+3. **Select relevant slices** (middle sagittal region where ACL is best visualized)
+4. **Normalize** intensity values to `[0, 1]`
+5. **Save as `.npz`** compressed NumPy arrays
+
+The `resize_dataset.py` script then resizes all slices to a consistent `224×224` resolution.
+
+### V4 — Combined Pipeline
+
+Merges the processed outputs from both Kaggle and RIMS datasets into a unified `DATASET/combined/` directory with a single `metadata.csv` for training.
 
 ---
 
-## 6. Deep Learning Model Architecture
+## 7. Deep Learning Model Architecture
 
-### Model Class: ACLDetector3D
+### V1 Model: ACLDetector3D
 
 ```python
 class ACLDetector3D(nn.Module):
@@ -303,131 +394,58 @@ class ACLDetector3D(nn.Module):
         # 4 convolutional blocks + fully connected classifier
 ```
 
-### Complete Architecture Breakdown
+#### Complete Architecture Breakdown
 
-#### Input Layer
-```
-Input shape: (batch_size, 1, 16, 128, 128)
-             (batch,     channels, depth, height, width)
-```
+**Input**: `(batch_size, 1, 16, 128, 128)` — (batch, channels, depth, height, width)
 
-#### Convolutional Block 1
+**Convolutional Block 1**:
 ```python
-nn.Conv3d(1, 32, kernel_size=3, padding=1)
+nn.Conv3d(1, 32, kernel_size=3, padding=1)    # → (batch, 32, 16, 128, 128)
 nn.BatchNorm3d(32)
 nn.ReLU(inplace=True)
-nn.MaxPool3d(kernel_size=2, stride=2)
+nn.MaxPool3d(kernel_size=2, stride=2)          # → (batch, 32, 8, 64, 64)
 ```
 
-**Detailed Explanation**:
-
-**Conv3d(1, 32, kernel_size=3, padding=1)**:
-- **Input channels**: 1 (grayscale MRI)
-- **Output channels**: 32 (learns 32 different 3D feature patterns)
-- **Kernel size**: 3×3×3 cube that slides over the volume
-- **Padding**: 1 pixel border added to maintain size
-- **Output**: (batch, 32, 16, 128, 128)
-
-**BatchNorm3d(32)**:
-- Normalizes the 32 feature maps
-- **Why**: Stabilizes training, allows higher learning rates
-- **How**: Normalizes each channel to mean=0, std=1
-
-**ReLU (Rectified Linear Unit)**:
-- Activation function: `f(x) = max(0, x)`
-- **Why**: Introduces non-linearity, allows learning complex patterns
-- **inplace=True**: Saves memory by modifying input directly
-
-**MaxPool3d(kernel_size=2, stride=2)**:
-- Takes 2×2×2 cube and keeps only the maximum value
-- **Why**: Reduces spatial dimensions, computational cost, and overfitting
-- **Output**: (batch, 32, 8, 64, 64)
-
-**Visual Representation**:
-```
-Input:  [1, 16, 128, 128]
-  ↓ Conv3D
-[32, 16, 128, 128]
-  ↓ MaxPool
-[32, 8, 64, 64]
-```
-
-#### Convolutional Block 2
+**Convolutional Block 2**:
 ```python
-nn.Conv3d(32, 64, kernel_size=3, padding=1)
+nn.Conv3d(32, 64, kernel_size=3, padding=1)    # → (batch, 64, 8, 64, 64)
 nn.BatchNorm3d(64)
 nn.ReLU(inplace=True)
-nn.MaxPool3d(kernel_size=2, stride=2)
+nn.MaxPool3d(kernel_size=2, stride=2)          # → (batch, 64, 4, 32, 32)
 ```
-- Input: (batch, 32, 8, 64, 64)
-- After Conv: (batch, 64, 8, 64, 64)
-- After Pool: (batch, 64, 4, 32, 32)
 
-#### Convolutional Block 3
+**Convolutional Block 3**:
 ```python
-nn.Conv3d(64, 128, kernel_size=3, padding=1)
+nn.Conv3d(64, 128, kernel_size=3, padding=1)   # → (batch, 128, 4, 32, 32)
 nn.BatchNorm3d(128)
 nn.ReLU(inplace=True)
-nn.MaxPool3d(kernel_size=2, stride=2)
+nn.MaxPool3d(kernel_size=2, stride=2)          # → (batch, 128, 2, 16, 16)
 ```
-- Input: (batch, 64, 4, 32, 32)
-- After Conv: (batch, 128, 4, 32, 32)
-- After Pool: (batch, 128, 2, 16, 16)
 
-#### Convolutional Block 4
+**Convolutional Block 4**:
 ```python
-nn.Conv3d(128, 256, kernel_size=3, padding=1)
+nn.Conv3d(128, 256, kernel_size=3, padding=1)  # → (batch, 256, 2, 16, 16)
 nn.BatchNorm3d(256)
 nn.ReLU(inplace=True)
-nn.AdaptiveAvgPool3d((1, 1, 1))  # Global Average Pooling
+nn.AdaptiveAvgPool3d((1, 1, 1))                # → (batch, 256, 1, 1, 1)
 ```
-- Input: (batch, 128, 2, 16, 16)
-- After Conv: (batch, 256, 2, 16, 16)
-- After **Adaptive** Pool: (batch, 256, 1, 1, 1)
 
-**AdaptiveAvgPool3d((1, 1, 1))** - Global Average Pooling:
-- Takes entire spatial volume and averages each channel to a single value
-- **Why**: Reduces overfitting, makes model robust to spatial variations
-- **Result**: 256 features per sample
-
-#### Classifier (Fully Connected Layers)
+**Classifier (Fully Connected)**:
 ```python
-nn.Flatten()                    # (batch, 256, 1, 1, 1) → (batch, 256)
-nn.Linear(256, 128)             # 256 → 128
+nn.Flatten()                    # (batch, 256)
+nn.Linear(256, 128)
 nn.ReLU(inplace=True)
-nn.Dropout(0.5)                 # Drop 50% of neurons
-nn.Linear(128, 64)              # 128 → 64
+nn.Dropout(0.5)
+nn.Linear(128, 64)
 nn.ReLU(inplace=True)
-nn.Dropout(0.3)                 # Drop 30% of neurons
-nn.Linear(64, 1)                # 64 → 1 (final prediction)
-nn.Sigmoid()                    # Squash to [0, 1]
+nn.Dropout(0.3)
+nn.Linear(64, 1)
+nn.Sigmoid()                    # Output: probability in [0, 1]
 ```
 
-**Flatten**:
-- Converts (batch, 256, 1, 1, 1) → (batch, 256)
-- Prepares for fully connected layers
+**Total Parameters**: ~1.25M trainable parameters
 
-**Linear(256, 128)**:
-- Fully connected layer: each output connected to all inputs
-- Matrix multiplication: 256 inputs × 128 outputs = 32,768 parameters
-
-**Dropout(0.5)**:
-- Randomly sets 50% of neurons to zero during training
-- **Why**: Prevents overfitting by forcing redundant learning
-- **Only active during training**, turned off during evaluation
-
-**Final Linear(64, 1)**:
-- Produces single output value
-- Raw value (logit) before sigmoid
-
-**Sigmoid**:
-- Activation: `σ(x) = 1 / (1 + e^(-x))`
-- Squashes any value to range [0, 1]
-- Interpreted as probability of ACL tear
-
-### Model Summary
-
-**Total Architecture**:
+#### Model Summary (V1)
 ```
 Input: (batch, 1, 16, 128, 128)
 ↓ Conv Block 1: (batch, 32, 8, 64, 64)
@@ -436,17 +454,20 @@ Input: (batch, 1, 16, 128, 128)
 ↓ Conv Block 4: (batch, 256, 1, 1, 1)
 ↓ Flatten: (batch, 256)
 ↓ FC Layers: (batch, 128) → (batch, 64) → (batch, 1)
-Output: (batch, 1) - Probability in [0, 1]
+Output: (batch, 1) — Probability in [0, 1]
 ```
 
-**Parameter Count**:
-- Convolutional layers: ~1.2M parameters
-- Fully connected layers: ~50K parameters
-- **Total**: ~1.25M trainable parameters
+### V3/V4 Model Architecture
+
+The V3 and V4 models use 2D CNN architectures, likely leveraging transfer learning with pre-trained backbones (e.g., ResNet). The 2D approach:
+- Processes individual 224×224 sagittal slices
+- Uses `nn.Conv2d` instead of `nn.Conv3d`
+- Benefits from pre-trained ImageNet weights
+- Lower memory requirements compared to 3D approach
 
 ---
 
-## 7. Training Process
+## 8. Training Process
 
 ### Data Splitting Strategy
 
@@ -457,18 +478,11 @@ val_df, test_df = train_test_split(temp_df, test_size=0.5, stratify=temp_df['bin
 ```
 
 **Proportions**:
-- **Training**: 70% (515 samples) - Used to train the model
-- **Validation**: 15% (110 samples) - Used during training for hyperparameter tuning
-- **Test**: 15% (111 samples) - Final evaluation, never seen during training
+- **Training**: 70% — Used to train the model
+- **Validation**: 15% — Used during training for hyperparameter tuning
+- **Test**: 15% — Final evaluation, never seen during training
 
-**Stratified Splitting**:
-- `stratify=valid_data['binary_label']` ensures each split has the same class distribution
-- **Example**: If original data is 75% No Tear / 25% Tear, all splits will maintain this ratio
-
-**Why Three Splits?**:
-- **Training**: Model learns patterns
-- **Validation**: Monitor overfitting, tune hyperparameters
-- **Test**: Unbiased final performance estimate
+**Stratified Splitting**: Ensures each split maintains the same class distribution.
 
 ### DataLoader and Batching
 
@@ -476,18 +490,9 @@ val_df, test_df = train_test_split(temp_df, test_size=0.5, stratify=temp_df['bin
 train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
 ```
 
-**Batch Size = 8**:
-- Processes 8 MRI scans at once
-- **Trade-off**:
-  - Larger batch → more stable gradients, faster training, more GPU memory
-  - Smaller batch → more updates, better generalization, less memory
-
-**shuffle=True** (for training):
-- Randomly reorders samples each epoch
-- **Why**: Prevents model from learning the order of examples
-
-**shuffle=False** (for validation/test):
-- Consistent ordering for reproducible results
+- **Batch Size = 8**: Processes 8 MRI samples at once
+- **shuffle=True** (training): Randomly reorders samples each epoch
+- **shuffle=False** (validation/test): Consistent ordering for reproducibility
 
 ### Loss Function
 
@@ -496,63 +501,19 @@ train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
 criterion = nn.BCELoss()
 ```
 
-**Formula**:
-```
-BCE = -[y * log(ŷ) + (1-y) * log(1-ŷ)]
+**Formula**: `BCE = -[y * log(ŷ) + (1-y) * log(1-ŷ)]`
 
-Where:
-y  = true label (0 or 1)
-ŷ  = predicted probability (0 to 1)
-```
-
-**Example**:
-```
-True label = 1 (ACL Tear)
-Predicted = 0.9
-BCE = -[1 * log(0.9) + 0 * log(0.1)] = 0.105 (low loss, good!)
-
-True label = 1 (ACL Tear)
-Predicted = 0.2
-BCE = -[1 * log(0.2) + 0 * log(0.8)] = 1.609 (high loss, bad!)
-```
-
-**Why BCE for Binary Classification?**:
-- Penalizes wrong predictions heavily
-- Optimizes probability estimates
-- Differentiable (allows backpropagation)
-
-#### Alternative: Weighted BCE (for Imbalanced Data)
+#### Weighted BCE (for Imbalanced Data)
 ```python
 pos_weight = torch.tensor([n_negative / n_positive])  # ~3.0
 criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 ```
-- Gives 3× more weight to positive (tear) samples
-- Compensates for class imbalance
-- **Not used in final implementation** but mentioned in code
 
 ### Optimizer
 
 #### Adam Optimizer
 ```python
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-```
-
-**What Adam Does**:
-- Updates model weights to minimize loss
-- **Adaptive Learning Rates**: Different learning rate for each parameter
-- **Momentum**: Uses past gradients to smooth updates
-
-**Learning Rate (lr=0.001)**:
-- Controls step size during optimization
-- 0.001 = 10^-3 is a common default
-- **Too high**: Training unstable, overshoots minimum
-- **Too low**: Training very slow
-
-**How Adam Works** (simplified):
-```
-1. Compute gradient: ∂Loss/∂weights
-2. Update weights: weights -= lr * gradient (with momentum and adaptation)
-3. Repeat for all batches
 ```
 
 ### Learning Rate Scheduler
@@ -563,188 +524,47 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 )
 ```
 
-**Purpose**: Automatically reduce learning rate when training plateaus
-
-**Parameters**:
-- **mode='min'**: Monitor validation loss (want to minimize it)
-- **factor=0.5**: Multiply learning rate by 0.5 when plateau detected
-- **patience=3**: Wait 3 epochs without improvement before reducing
-- **verbose=True**: Print when learning rate changes
-
-**Example Behavior**:
-```
-Epoch 1: val_loss=0.500, lr=0.001
-Epoch 2: val_loss=0.450, lr=0.001
-Epoch 3: val_loss=0.440, lr=0.001
-Epoch 4: val_loss=0.441, lr=0.001 (no improvement)
-Epoch 5: val_loss=0.442, lr=0.001 (no improvement)
-Epoch 6: val_loss=0.443, lr=0.001 (no improvement)
-Epoch 7: lr reduced to 0.0005 (3 epochs patience exceeded)
-```
-
-**Why This Helps**:
-- Large learning rate for fast initial learning
-- Smaller learning rate for fine-tuning later
-- Automatic adaptation without manual intervention
-
-### Training Loop
-
-#### One Epoch Structure
-```python
-def train_one_epoch(model, loader, criterion, optimizer, device):
-    model.train()  # Enable dropout, batch norm in training mode
-
-    for batch_x, batch_y in loader:
-        # 1. Move data to GPU/CPU
-        batch_x = batch_x.to(device)
-        batch_y = batch_y.to(device)
-
-        # 2. Zero gradients from previous iteration
-        optimizer.zero_grad()
-
-        # 3. Forward pass
-        outputs = model(batch_x)
-
-        # 4. Compute loss
-        loss = criterion(outputs.squeeze(), batch_y)
-
-        # 5. Backward pass (compute gradients)
-        loss.backward()
-
-        # 6. Update weights
-        optimizer.step()
-```
-
-**Step-by-Step Explanation**:
-
-**model.train()**:
-- Sets model to training mode
-- Enables dropout (randomly drops neurons)
-- Enables batch normalization updates
-
-**optimizer.zero_grad()**:
-- Clears old gradients
-- **Why**: PyTorch accumulates gradients by default
-
-**Forward Pass**:
-- Input flows through model
-- Predictions are generated
-
-**loss.backward()**:
-- Computes gradients: ∂Loss/∂weights for all parameters
-- Uses backpropagation algorithm
-- Automatically handles complex chain rule
-
-**optimizer.step()**:
-- Updates all weights using computed gradients
-- `weight = weight - learning_rate * gradient`
-
-### Validation Loop
-
-```python
-def validate(model, loader, criterion, device):
-    model.eval()  # Disable dropout, batch norm in eval mode
-
-    with torch.no_grad():  # Disable gradient computation
-        for batch_x, batch_y in loader:
-            outputs = model(batch_x)
-            loss = criterion(outputs.squeeze(), batch_y)
-            predictions = (outputs > 0.5).float()
-```
-
-**Key Differences from Training**:
-
-**model.eval()**:
-- Disables dropout (uses all neurons)
-- Batch norm uses running statistics instead of batch statistics
-
-**with torch.no_grad()**:
-- Disables gradient calculation
-- **Why**: Saves memory and computation during evaluation
-
-**No optimizer.step()**:
-- Weights are not updated during validation
+Automatically reduces learning rate by 50% when validation loss plateaus for 3 epochs.
 
 ### Early Stopping
 
 ```python
 PATIENCE = 7
-patience_counter = 0
-
 if val_loss < best_val_loss:
     best_val_loss = val_loss
     best_model_state = model.state_dict().copy()
     patience_counter = 0
 else:
     patience_counter += 1
-
 if patience_counter >= PATIENCE:
     print("Early stopping triggered")
     break
 ```
 
-**Purpose**: Stop training when model stops improving
+Stops training when validation loss stops improving for 7 consecutive epochs.
 
-**How It Works**:
-1. Monitor validation loss after each epoch
-2. If validation loss improves, reset counter and save model
-3. If validation loss doesn't improve, increment counter
-4. If counter reaches PATIENCE (7 epochs), stop training
-
-**Why Early Stopping?**:
-- Prevents overfitting (model memorizing training data)
-- Saves training time
-- Automatically finds optimal number of epochs
-
-**Example**:
-```
-Epoch 1: val_loss=0.50 ✓ (best, save model)
-Epoch 2: val_loss=0.45 ✓ (best, save model)
-Epoch 3: val_loss=0.47 ✗ (worse, counter=1)
-Epoch 4: val_loss=0.46 ✗ (worse, counter=2)
-...
-Epoch 10: val_loss=0.48 ✗ (counter=7, STOP!)
-Load best model from Epoch 2
-```
-
-### Complete Training Configuration
+### Training Configuration (V1)
 
 ```python
 NUM_EPOCHS = 30
 BATCH_SIZE = 8
 LEARNING_RATE = 0.001
 PATIENCE = 7
-TARGET_SIZE = (16, 128, 128)
+TARGET_SIZE = (16, 128, 128)  # V1: 3D
 ```
-
-**These hyperparameters control**:
-- Training duration (30 epochs max)
-- Memory usage (batch size 8)
-- Learning speed (lr 0.001)
-- Overfitting prevention (patience 7)
-- Input standardization (target size)
 
 ---
 
-## 8. Evaluation Metrics
+## 9. Evaluation Metrics
 
 ### Accuracy
-
 ```python
 accuracy = correct_predictions / total_predictions
 ```
 
-**Example**:
-- 100 test samples
-- 85 correctly predicted
-- Accuracy = 85/100 = 0.85 = 85%
-
-**Limitations**:
-- Misleading with imbalanced data
-- **Example**: If 90% are "No Tear", predicting always "No Tear" gives 90% accuracy but is useless
+**Limitations**: Misleading with imbalanced data (e.g., always predicting "No Tear" gives 75% accuracy).
 
 ### Confusion Matrix
-
 ```
                 Predicted
               No Tear  |  Tear
@@ -753,320 +573,127 @@ No Tear   |    TN     |   FP
 Tear      |    FN     |   TP
 ```
 
-**Components**:
-- **True Negative (TN)**: Correctly predicted No Tear
-- **False Positive (FP)**: Predicted Tear, but actually No Tear (Type I error)
-- **False Negative (FN)**: Predicted No Tear, but actually Tear (Type II error)
-- **True Positive (TP)**: Correctly predicted Tear
-
-**Example**:
-```
-              Predicted
-           No Tear  |  Tear
-Actual ----------------------
-No Tear |    80     |   3
-Tear    |    5      |   12
-```
-- TN=80, FP=3, FN=5, TP=12
-- Total accuracy = (80+12)/100 = 92%
-
 **Medical Significance**:
-- **False Negative (FN)**: Most dangerous - miss a tear, patient doesn't get treatment
-- **False Positive (FP)**: Less dangerous but causes unnecessary anxiety/procedures
+- **False Negative (FN)**: Most dangerous — missed tear, patient doesn't get treatment
+- **False Positive (FP)**: Less dangerous but causes unnecessary procedures
 
 ### Precision, Recall, F1-Score
 
-#### Precision
-```python
-Precision = TP / (TP + FP)
-```
-- **Question Answered**: "Of all predicted tears, how many were actually tears?"
-- **Example**: TP=12, FP=3 → Precision = 12/15 = 0.80 = 80%
-- **High Precision**: Few false alarms
-
-#### Recall (Sensitivity)
-```python
-Recall = TP / (TP + FN)
-```
-- **Question Answered**: "Of all actual tears, how many did we detect?"
-- **Example**: TP=12, FN=5 → Recall = 12/17 = 0.71 = 71%
-- **High Recall**: Few missed cases
-
-#### F1-Score
-```python
-F1 = 2 * (Precision * Recall) / (Precision + Recall)
-```
-- **Harmonic mean** of precision and recall
-- **Example**: Precision=0.80, Recall=0.71 → F1 = 2*(0.80*0.71)/(0.80+0.71) = 0.75
-- **Balanced metric**: Good when you care equally about FP and FN
+- **Precision** = TP / (TP + FP) — "Of predicted tears, how many were actual tears?"
+- **Recall** = TP / (TP + FN) — "Of actual tears, how many did we detect?"
+- **F1-Score** = 2 × (Precision × Recall) / (Precision + Recall) — Harmonic mean
 
 ### Classification Report
-
 ```python
 from sklearn.metrics import classification_report
 print(classification_report(y_true, y_pred, target_names=['No Tear', 'ACL Tear']))
 ```
 
-**Sample Output**:
-```
-              precision    recall  f1-score   support
+---
 
-     No Tear       0.94      0.96      0.95        83
-    ACL Tear       0.80      0.71      0.75        28
+## 10. Technologies and Libraries
 
-    accuracy                           0.90       111
-   macro avg       0.87      0.84      0.85       111
-weighted avg       0.90      0.90      0.90       111
-```
-
-**Interpretation**:
-- **support**: Number of samples in each class
-- **macro avg**: Simple average across classes (treats classes equally)
-- **weighted avg**: Weighted by class size (accounts for imbalance)
-
-### ROC-AUC (Not Implemented, But Relevant)
-
-**ROC Curve**: Plots True Positive Rate vs False Positive Rate at different thresholds
-
-**AUC (Area Under Curve)**:
-- Single number summarizing ROC curve
-- **1.0**: Perfect classifier
-- **0.5**: Random guessing
-- **>0.8**: Generally considered good for medical AI
+| Library | Purpose |
+|---------|---------|
+| **PyTorch** (`torch`, `torchvision`) | Deep learning framework, model definition, training |
+| **NumPy** | Array operations, numerical computing |
+| **Pandas** | Data manipulation, CSV loading |
+| **scikit-image** (`skimage`) | Image resizing and preprocessing |
+| **scikit-learn** (`sklearn`) | Train/test splitting, evaluation metrics |
+| **Matplotlib** | Visualization, training curves, confusion matrices |
+| **Seaborn** | Statistical visualizations |
+| **pydicom** | DICOM medical image file parsing (V3) |
+| **Jupyter / Google Colab** | Interactive development environment |
+| **Git LFS** | Large file storage for model weights |
+| **pickle** | Loading `.pck` MRI files (V1) |
 
 ---
 
-## 9. Technologies and Libraries
+## 11. File Structure
 
-### PyTorch (torch)
-
-**What**: Deep learning framework by Facebook/Meta
-
-**Key Components Used**:
-
-#### torch.nn (Neural Network Module)
-```python
-import torch.nn as nn
-```
-- `nn.Module`: Base class for all neural networks
-- `nn.Conv3d`: 3D convolutional layer
-- `nn.BatchNorm3d`: Batch normalization
-- `nn.MaxPool3d`: Max pooling
-- `nn.Linear`: Fully connected layer
-- `nn.Dropout`: Dropout regularization
-- `nn.ReLU`: ReLU activation
-- `nn.Sigmoid`: Sigmoid activation
-- `nn.BCELoss`: Binary cross-entropy loss
-
-#### torch.optim (Optimization)
-```python
-import torch.optim as optim
-```
-- `optim.Adam`: Adam optimizer
-- `optim.lr_scheduler.ReduceLROnPlateau`: Learning rate scheduler
-
-#### torch.utils.data
-```python
-from torch.utils.data import Dataset, DataLoader
-```
-- `Dataset`: Abstract class for custom datasets
-- `DataLoader`: Batching, shuffling, parallel loading
-
-#### torch.device
-```python
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-```
-- Automatically detects and uses GPU if available
-- **CUDA**: NVIDIA's parallel computing platform
-- **CPU fallback**: Works on any machine
-
-### NumPy
-
-```python
-import numpy as np
-```
-
-**Uses**:
-- Array operations on MRI data
-- Mathematical operations
-- Data type conversions
-- Array slicing and indexing
-
-**Key Functions Used**:
-- `np.array()`: Create arrays
-- `np.random.seed()`: Reproducibility
-- Array operations: `.min()`, `.max()`, `.mean()`
-
-### Pandas
-
-```python
-import pandas as pd
-```
-
-**Uses**:
-- Load metadata CSV
-- Data filtering and selection
-- Statistical analysis
-- Data splitting
-
-**Key Functions Used**:
-- `pd.read_csv()`: Load metadata
-- `dataframe.iloc[]`: Row selection by index
-- `dataframe['column']`: Column selection
-- `.value_counts()`: Count class distribution
-
-### scikit-image (skimage)
-
-```python
-from skimage.transform import resize
-```
-
-**Purpose**: Image processing
-
-**Functions Used**:
-- `resize()`: Resize 3D volumes with anti-aliasing
-- Handles interpolation for smooth resizing
-
-### scikit-learn (sklearn)
-
-```python
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-```
-
-**Uses**:
-- **train_test_split**: Split data into train/val/test sets
-- **classification_report**: Compute precision, recall, F1
-- **confusion_matrix**: Generate confusion matrix
-- **accuracy_score**: Calculate accuracy
-
-### Matplotlib
-
-```python
-import matplotlib.pyplot as plt
-```
-
-**Uses**:
-- Visualize MRI slices
-- Plot training curves
-- Display confusion matrix
-- Show predictions
-
-**Key Functions**:
-- `plt.imshow()`: Display images
-- `plt.plot()`: Line plots
-- `plt.subplot()`: Multiple plots
-- `plt.savefig()`: Save figures
-
-### Python Standard Library
-
-#### pickle
-```python
-import pickle
-```
-- Serialize/deserialize Python objects
-- Load .pck MRI files
-
-#### os
-```python
-import os
-```
-- File path operations
-- `os.path.join()`: Platform-independent path joining
-- `os.path.exists()`: Check file existence
-
-#### collections.Counter
-```python
-from collections import Counter
-```
-- Count class distributions
-
----
-
-## 10. File Structure
-
-### Project Root
 ```
 ACL tears/
-├── .git/                          # Git repository
-├── .gitignore                     # Git ignore rules
-├── .gitattributes                 # Git attributes
-├── LICENSE                        # Project license
-├── README.md                      # Project overview
+├── .git/                                      # Git repository
+├── .gitignore                                 # Git ignore rules
+├── .gitattributes                             # Git LFS & line ending config
+├── LICENSE                                    # MIT License
+├── README.md                                  # Project overview
+├── PROJECT_DOCUMENTATION.md                   # This file
 │
-├── mri_env/                       # Virtual environment
-│   └── ...                        # Python packages
+├── V1_3D_kaggle/                              # Version 1: 3D CNN on Kaggle data
+│   ├── ACL_Tear_Detection_Complete.ipynb      #   Main training notebook
+│   ├── acl_detector_model.pth                 #   Trained model weights (~14 MB)
+│   └── training_history.png                   #   Training curves
 │
-├── DATASET/                       # Data directory (not in repo)
-│   └── MRI/
-│       ├── metadata.csv          # Labels and ROI info
-│       ├── vol01/                # Volume folders
-│       ├── vol02/
-│       ├── ...
-│       └── vol08/
+├── V3_2D_RIMS/                                # Version 3: 2D CNN on RIMS data
+│   ├── preprocess_dicom_dataset.py            #   DICOM preprocessing pipeline
+│   ├── resize_dataset.py                      #   Slice resizing utility
+│   ├── ACL_Training_Colab.ipynb               #   Colab training notebook
+│   ├── ACL_Training_Improved.ipynb            #   Improved training (local)
+│   └── ACL_Training_Improved(ran on colab).ipynb  # With Colab outputs
 │
-├── notebook/                      # Development notebooks
-│   ├── 01_test.ipynb             # PyTorch testing
-│   ├── 03_dataset_pipeline.ipynb # Dataset experiments
-│   └── test.py                   # Simple PyTorch test
+├── V4_2D_kaggle+RIMS/                         # Version 4: 2D CNN on Combined data
+│   ├── ACL_Training_Combined.ipynb            #   Binary classification training
+│   ├── ACL_Training_Combined(ran on colab).ipynb  # With Colab outputs
+│   ├── ACL_Training_Combined_3classes.ipynb   #   3-class classification experiment
+│   ├── PNG_to_Prediction.ipynb                #   Inference from PNG images
+│   └── best_acl_model_combined.pth            #   Best model weights (~17 MB)
 │
-├── ACL_Tear_Detection_Complete.ipynb  # Main training notebook (in checkpoints)
-├── 04_test_dataset.ipynb              # Dataset testing
+├── Gradcam/                                   # GradCAM interpretability
+│   ├── ACL_GradCAM_Visualization.ipynb        #   Visualization notebook
+│   └── gradcam_outputs/                       #   Heatmap overlay images
 │
-├── acl_detector_model.pth         # Trained model weights (~14MB)
-├── training_history.png           # Training curves
-├── confusion_matrix.png           # Performance visualization
-└── predictions_visualization.png  # Sample predictions
+├── DATASET/                                   # [NOT IN REPO] All MRI data
+│   ├── MRI/                                   #   Kaggle data (vol01–vol08 + metadata)
+│   │   ├── metadata.csv
+│   │   ├── vol01/ ... vol08/
+│   ├── processed_sagittal/                    #   Processed RIMS sagittal slices
+│   ├── processed_sagittal_resized/            #   Resized sagittal slices
+│   └── combined/                              #   Combined dataset + metadata
+│       ├── metadata.csv
+│       ├── *.npz
+│       └── *.npy
+│
+└── mri_env/                                   # [NOT IN REPO] Virtual environment
 ```
 
 ### Key Files Explained
 
-#### ACL_Tear_Detection_Complete.ipynb
-- **Main training notebook** (736 lines)
+#### V1: ACL_Tear_Detection_Complete.ipynb
+- Main 3D CNN training notebook
 - Contains complete pipeline from data loading to evaluation
+- Binary classification with `.pck` file processing
 - Well-documented with markdown explanations
-- Designed for educational purposes
 
-#### acl_detector_model.pth
-- PyTorch model checkpoint (~14MB)
-- Contains:
-  - `model_state_dict`: Trained weights
-  - `optimizer_state_dict`: Optimizer state
-  - `history`: Training/validation metrics
-  - `best_val_loss`: Best validation loss achieved
+#### V3: preprocess_dicom_dataset.py
+- Converts raw DICOM files from hospital scanners to `.npz` format
+- Extracts sagittal plane slices
+- Handles various DICOM metadata and orientations
 
-**Loading**:
-```python
-checkpoint = torch.load('acl_detector_model.pth')
-model.load_state_dict(checkpoint['model_state_dict'])
-```
+#### V4: ACL_Training_Combined_3classes.ipynb
+- Experimental notebook attempting 3-class classification
+- Classes: No Tear (0), Partial Tear (1), Complete Tear (2)
+- Uses CrossEntropyLoss instead of BCELoss
 
-#### metadata.csv
-- CSV file with 917 rows (one per MRI scan)
-- 11 columns (examId, aclDiagnosis, ROI coordinates, etc.)
-- Critical for mapping files to labels
+#### Model Files (.pth)
+- `V1_3D_kaggle/acl_detector_model.pth` (~14 MB) — V1 trained weights
+- `V4_2D_kaggle+RIMS/best_acl_model_combined.pth` (~17 MB) — V4 best model
 
-#### Visualization Files
-- **training_history.png**: Loss and accuracy curves over epochs
-- **confusion_matrix.png**: 2×2 matrix showing predictions vs actual
-- **predictions_visualization.png**: 6 sample predictions with ROI images
+Both contain `model_state_dict`, `optimizer_state_dict`, and training history. Tracked via Git LFS.
+
+#### Grad-CAM Outputs
+- `gradcam_outputs/` contains heatmap overlays showing correct and incorrect predictions
+- File naming: `{ID}_{DIAGNOSIS}_{correct/incorrect}.png`
 
 ---
 
-## 11. Key Concepts Explained
+## 12. Key Concepts Explained
 
 ### 1. Binary Classification
-
-**Definition**: Categorizing inputs into one of two classes
 
 **In This Project**:
 - **Class 0**: No ACL Tear (negative class)
 - **Class 1**: ACL Tear (positive class)
-
-**Why Binary Instead of Multi-class?**:
-- Simplifies the problem (3 classes → 2 classes)
-- More balanced (227 tears vs 690 no tears is better than 690/150/77 split)
-- Clinically relevant (tear vs no tear is the primary diagnostic question)
 
 **Converting Multi-class to Binary**:
 ```python
@@ -1076,314 +703,97 @@ metadata['binary_label'] = (metadata['aclDiagnosis'] > 0).astype(int)
 # 2 → 1 (complete tear → tear)
 ```
 
-### 2. Class Imbalance
+### 2. 3D vs 2D Convolution
 
-**Problem**: Unequal number of samples per class
-
-**In This Project**:
-- No Tear: 690 samples (75%)
-- Tear: 227 samples (25%)
-- **Imbalance Ratio**: 3:1
-
-**Why It Matters**:
-- Model may bias toward majority class
-- High accuracy by always predicting "No Tear"
-- Poor performance on minority class (the important one!)
-
-**Solutions**:
-1. **Weighted Loss**: Give more weight to minority class
-2. **Data Augmentation**: Generate more minority samples
-3. **Stratified Splitting**: Maintain class ratio in all splits
-4. **Evaluation Metrics**: Use F1, precision, recall instead of just accuracy
-
-### 3. Overfitting vs Underfitting
-
-#### Overfitting
-- **Problem**: Model memorizes training data, fails on new data
-- **Signs**:
-  - Training accuracy high (>95%)
-  - Validation accuracy low (<70%)
-  - Large gap between train and val loss
-- **Solutions**:
-  - Dropout (randomly disable neurons)
-  - Early stopping
-  - More training data
-  - Data augmentation
-
-#### Underfitting
-- **Problem**: Model too simple, can't learn patterns
-- **Signs**:
-  - Both training and validation accuracy low
-  - Model performs poorly everywhere
-- **Solutions**:
-  - Larger model (more layers/parameters)
-  - Train longer
-  - Better features
-
-**Ideal**: Balanced model that generalizes well
-
-### 4. Convolution Operation
-
-**1D Example**:
-```
-Input:  [1, 2, 3, 4, 5]
-Kernel: [0.5, 1, 0.5]
-
-Output[0] = 0.5*1 + 1*2 + 0.5*3 = 3.5
-Output[1] = 0.5*2 + 1*3 + 0.5*4 = 5.5
-Output[2] = 0.5*3 + 1*4 + 0.5*5 = 7.5
-```
-
-**3D Convolution**:
+**3D Convolution (V1)**:
 - Kernel is a 3D cube (e.g., 3×3×3)
 - Slides over volume in all three dimensions
-- Produces 3D output feature maps
+- Captures inter-slice spatial relationships
+- Higher computational cost
 
-**Purpose**:
-- Detect patterns (edges, textures, shapes)
-- Learn hierarchical features
-- Translation invariant (detects pattern anywhere in image)
+**2D Convolution (V3/V4)**:
+- Kernel is a 2D grid (e.g., 3×3)
+- Processes individual slices
+- Can leverage pre-trained models
+- More computationally efficient
 
-### 5. Pooling
+### 3. Class Imbalance
 
-**Max Pooling Example** (2×2):
-```
-Input:
-[1 2]
-[3 4]
+**Problem**: No Tear: 690 (75%) vs Tear: 227 (25%)
 
-Output: 4 (maximum value)
-```
+**Solutions Used**:
+1. Weighted Loss — More weight to minority class
+2. Stratified Splitting — Maintain class ratio across splits
+3. Evaluation Metrics — Use F1/precision/recall beyond accuracy
 
-**Purpose**:
-- **Dimension Reduction**: Reduce spatial size
-- **Computational Efficiency**: Fewer parameters in next layer
-- **Translation Invariance**: Small shifts don't affect output
-- **Feature Selection**: Keep most prominent features
+### 4. Overfitting vs Underfitting
 
-**Types**:
-- **Max Pooling**: Take maximum (used in early layers)
-- **Average Pooling**: Take average
-- **Global Average Pooling**: Pool entire feature map to 1 value (used in last conv block)
+**Overfitting**: Model memorizes training data; high train accuracy, low validation accuracy.
+- Solutions: Dropout, early stopping, data augmentation, more data
 
-### 6. Batch Normalization
+**Underfitting**: Model too simple; both train and validation accuracy are low.
+- Solutions: Larger model, more training, better features
 
-**Problem**: Internal covariate shift (layer inputs change during training)
+### 5. Batch Normalization
 
-**Solution**: Normalize layer inputs to have mean=0, std=1
-
-**Formula**:
+Normalizes layer inputs to `mean=0, std=1`:
 ```
 x_normalized = (x - μ_batch) / √(σ²_batch + ε)
 output = γ * x_normalized + β
 ```
+Benefits: Faster training, higher learning rates, regularization effect.
 
-Where:
-- μ_batch, σ²_batch: Batch mean and variance
-- γ, β: Learnable parameters
-- ε: Small constant (1e-5) for numerical stability
+### 6. Dropout
 
-**Benefits**:
-- Faster training
-- Higher learning rates possible
-- Less sensitive to weight initialization
-- Regularization effect (slight noise from batch statistics)
-
-### 7. Dropout
-
-**Concept**: Randomly set neurons to zero during training
-
-**Implementation**:
+Randomly sets neurons to zero during training:
 ```python
 nn.Dropout(0.5)  # 50% dropout rate
 ```
+Prevents co-adaptation of neurons and acts as regularization. Disabled during evaluation.
 
-**Example**:
-```
-Layer output: [0.5, 0.8, 0.3, 0.9]
-After dropout: [0.0, 0.8, 0.0, 0.9]  # 50% randomly zeroed
-```
+### 7. Transfer Learning (V3/V4)
 
-**Why It Works**:
-- Prevents co-adaptation of neurons
-- Forces redundant representations
-- Ensemble effect (different subnetworks each iteration)
+Using pre-trained models (e.g., ResNet trained on ImageNet) as feature extractors, then fine-tuning the final layers on medical data. This is especially valuable when medical datasets are small.
 
-**During Evaluation**: Dropout is disabled, all neurons used
+### 8. DICOM Format (V3)
 
-### 8. Backpropagation
+DICOM (Digital Imaging and Communications in Medicine) is the standard format for medical imaging. The `pydicom` library is used to parse these files, which contain both pixel data and rich metadata (patient info, scan parameters, etc.).
 
-**Purpose**: Compute gradients for all parameters
+### 9. Grad-CAM
 
-**Chain Rule**:
-```
-∂Loss/∂w₁ = (∂Loss/∂output) × (∂output/∂w₁)
-```
+Gradient-weighted Class Activation Mapping generates heatmaps showing which regions of the input image the model focuses on. This is crucial for:
+- **Interpretability**: Understanding model decisions
+- **Trust**: Validating that the model looks at clinically relevant regions
+- **Debugging**: Identifying when the model uses spurious features
 
-**Process**:
-1. Forward pass: Compute predictions and loss
-2. Backward pass: Compute gradients layer-by-layer (from output to input)
-3. Update weights using gradients
+### 10. GPU Acceleration
 
-**PyTorch Automation**:
-```python
-loss.backward()  # Automatically computes all gradients
-optimizer.step() # Updates all weights
-```
-
-### 9. Gradient Descent
-
-**Concept**: Iteratively update weights to minimize loss
-
-**Update Rule**:
-```
-weight_new = weight_old - learning_rate × gradient
-```
-
-**Variants**:
-- **Batch GD**: Use all data (slow)
-- **Stochastic GD**: Use one sample (noisy)
-- **Mini-batch GD**: Use small batch (best of both)
-
-**Adam Optimizer**: Advanced variant with:
-- Adaptive learning rates per parameter
-- Momentum (smooths updates)
-- Bias correction
-
-### 10. Transfer Learning (Not Used Here)
-
-**Concept**: Use pre-trained model on similar task
-
-**Why Relevant**:
-- Medical imaging datasets are often small
-- Pre-trained models (e.g., on ImageNet) provide good feature extractors
-- Fine-tune final layers on medical data
-
-**Potential Improvement**:
-```python
-# Use pre-trained 3D ResNet
-from torchvision.models.video import r3d_18
-model = r3d_18(pretrained=True)
-# Replace final layer for binary classification
-model.fc = nn.Linear(512, 1)
-```
-
-### 11. Tensor Operations
-
-**Tensor**: Multi-dimensional array (generalization of matrices)
-
-**Dimensions**:
-- **Scalar**: 0D tensor (single number)
-- **Vector**: 1D tensor [1, 2, 3]
-- **Matrix**: 2D tensor [[1,2], [3,4]]
-- **3D Tensor**: [[[1,2], [3,4]], [[5,6], [7,8]]]
-- **4D Tensor**: Common in images (batch, channels, height, width)
-- **5D Tensor**: Used here (batch, channels, depth, height, width)
-
-**Key Operations**:
-```python
-x.unsqueeze(0)   # Add dimension
-x.squeeze()      # Remove dimension
-x.permute(dims)  # Reorder dimensions
-x.view(shape)    # Reshape (must be contiguous)
-x.to(device)     # Move to GPU/CPU
-```
-
-### 12. Activation Functions
-
-#### ReLU (Rectified Linear Unit)
-```
-f(x) = max(0, x)
-```
-- **Pros**: Fast, no vanishing gradient, sparse activation
-- **Cons**: Dead neurons (if weights push all inputs < 0)
-
-#### Sigmoid
-```
-f(x) = 1 / (1 + e^(-x))
-```
-- **Output**: (0, 1) - interpreted as probability
-- **Pros**: Smooth, differentiable
-- **Cons**: Vanishing gradient for large |x|
-
-**Why ReLU in Hidden Layers, Sigmoid in Output?**:
-- ReLU: Better gradient flow, faster training
-- Sigmoid: Probability output for binary classification
-
-### 13. GPU Acceleration
-
-**Why Use GPU?**:
-- **Parallel Processing**: GPUs have thousands of cores
-- **Matrix Operations**: Deep learning is mostly matrix multiplication
-- **Speed**: 10-100× faster than CPU
-
-**PyTorch GPU Usage**:
 ```python
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = model.to(device)      # Move model to GPU
-data = data.to(device)        # Move data to GPU
+model = model.to(device)
+data = data.to(device)
 ```
 
-**Memory Consideration**:
-- GPUs have limited memory (8-24GB typical)
-- Batch size limited by GPU memory
-- Larger models require more memory
-
-### 14. Model Saving and Loading
-
-**Saving**:
-```python
-torch.save({
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-    'history': history
-}, 'model.pth')
-```
-
-**Loading**:
-```python
-checkpoint = torch.load('model.pth', map_location=device)
-model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()  # Set to evaluation mode
-```
-
-**state_dict**: Dictionary mapping parameter names to tensors
-
-### 15. Random Seeds for Reproducibility
-
-```python
-np.random.seed(42)
-torch.manual_seed(42)
-```
-
-**Purpose**: Make results reproducible
-
-**Why**:
-- Random initialization of weights
-- Random data shuffling
-- Random dropout masks
-- Setting seed ensures same "randomness" every run
-
-**Note**: Perfect reproducibility on GPU is harder (CUDA operations may not be deterministic)
+GPUs provide 10-100× speedup over CPUs for deep learning due to parallel matrix operations.
 
 ---
 
 ## Conclusion
 
-This ACL tear detection project demonstrates a complete deep learning pipeline for medical image analysis:
+This ACL tear detection project demonstrates a complete, evolving deep learning pipeline for medical image analysis across three model versions:
 
-1. **Data Handling**: Loading, preprocessing, and organizing 3D MRI data
-2. **Model Architecture**: Custom 3D CNN with 4 convolutional blocks
-3. **Training Strategy**: Proper splitting, early stopping, learning rate scheduling
-4. **Evaluation**: Comprehensive metrics including confusion matrix and classification report
-5. **Deployment Ready**: Saved model with prediction functions
+1. **V1 (3D CNN)**: Established the baseline using 3D convolutions on Kaggle volumetric data
+2. **V3 (2D CNN)**: Shifted to 2D approach with real clinical DICOM data from RIMS hospital
+3. **V4 (2D CNN)**: Combined datasets for improved diversity; explored multi-class classification
+4. **Grad-CAM**: Added model interpretability through activation visualization
 
 **Key Takeaways**:
-- Medical imaging requires specialized preprocessing (ROI extraction, normalization)
-- 3D CNNs are essential for volumetric medical data
+- Medical imaging requires specialized preprocessing (ROI extraction, DICOM parsing, normalization)
+- Both 3D and 2D CNN approaches have trade-offs for volumetric medical data
+- Combining multiple data sources improves model robustness
 - Class imbalance must be addressed in medical datasets
+- Model interpretability (Grad-CAM) is essential for clinical trust
 - Proper evaluation metrics (beyond accuracy) are critical
-- Early stopping prevents overfitting
 
 **Potential Applications**:
 - Assist radiologists in preliminary screening
