@@ -1,61 +1,133 @@
-# ACL-tears
-My first projects to detect ACL tears on MRI scan.
-# ACL Tear Detection from MRI Scans
+# ACL Tear Detection from Knee MRI Scans
 
-A deep learning project that uses 3D Convolutional Neural Networks (CNN) to automatically detect Anterior Cruciate Ligament (ACL) tears from knee MRI scans.
+A deep learning project that uses Convolutional Neural Networks (CNNs) to automatically detect Anterior Cruciate Ligament (ACL) tears from knee MRI scans. The project evolved through **three model versions** (V1, V3, V4), progressively improving data sources, preprocessing approaches, and classification strategies.
 
 ## 🎯 Project Overview
 
-This project implements a medical imaging AI system that can classify knee MRI scans into three categories:
-- **0**: No ACL tear (healthy)
-- **1**: Partial ACL tear
-- **2**: Complete ACL tear
+This project implements a medical imaging AI system that classifies knee MRI scans to detect ACL tears. The system evolved across multiple iterations:
 
-The model achieves this by processing 3D MRI volumes and learning to identify patterns associated with ACL injuries.
+| Version | Approach | Dataset | Input Type | Classification |
+|---------|----------|---------|------------|----------------|
+| **V1** | 3D CNN | Kaggle (`.pck` files) | 3D MRI volumes (16×128×128) | Binary (Tear vs No Tear) |
+| **V3** | 2D CNN | RIMS Hospital (DICOM → `.npz`) | 2D sagittal slices (224×224) | Binary (Tear vs No Tear) |
+| **V4** | 2D CNN | Combined (Kaggle + RIMS) | 2D slices (224×224) | Binary + 3-class |
 
-## 🏗️ Model Architecture
+> **Note**: V2 was an intermediate experimental iteration that was not retained.
 
-- **Type**: 3D Convolutional Neural Network (CNN)
-- **Framework**: PyTorch 2.9.1
-- **Architecture**:
-  - 4 convolutional blocks with increasing filters (32 → 64 → 128 → 256)
-  - Batch normalization and ReLU activations
-  - Global average pooling
-  - Fully connected layers with dropout (0.5 and 0.3)
-  - Binary classification output (Tear vs No Tear)
+## 🏗️ Model Versions
 
-## 📊 Dataset
+### V1 — 3D CNN on Kaggle Data (`V1_3D_kaggle/`)
 
-- **Total samples**: 917 MRI scans
-- **Available files**: 736 scans
-- **Format**: 3D MRI volumes stored as `.pck` files
-- **Input size**: Variable (resized to 16×128×128)
-- **Class distribution**:
-  - No Tear: 690 samples (75%)
-  - Partial/Complete Tear: 227 samples (25%)
+The original model using 3D convolutions to process volumetric MRI data.
 
-### Data Split
-- Training: 70% (515 samples)
-- Validation: 15% (110 samples)
-- Test: 15% (111 samples)
+- **Architecture**: Custom 3D CNN with 4 convolutional blocks (32 → 64 → 128 → 256 filters)
+- **Input**: 3D MRI volumes resized to 16×128×128, loaded from `.pck` files
+- **Dataset**: 917 MRI scans (736 available), sourced from Kaggle
+- **Training**: Binary classification (Tear vs No Tear) with BCE loss, Adam optimizer, early stopping
+- **Key Files**:
+  - `ACL_Tear_Detection_Complete.ipynb` — Main training notebook
+  - `acl_detector_model.pth` — Trained model weights (~14 MB)
+  - `training_history.png` — Training curves
 
-**Note**: The dataset is NOT included in this repository due to size (~5GB) and privacy concerns. You'll need to provide your own MRI dataset.
+### V3 — 2D CNN on RIMS Hospital Data (`V3_2D_RIMS/`)
+
+Shifted to 2D approach using real clinical DICOM data from RIMS (Regional Institute of Medical Sciences) hospital.
+
+- **Architecture**: 2D CNN (likely ResNet-based / transfer learning)
+- **Input**: 2D sagittal MRI slices (224×224), preprocessed from DICOM format
+- **Dataset**: RIMS hospital MRI scans, converted from DICOM to `.npz` format
+- **Preprocessing**: Custom pipeline to extract and resize sagittal slices from DICOM series
+- **Key Files**:
+  - `preprocess_dicom_dataset.py` — DICOM to `.npz` preprocessing pipeline
+  - `resize_dataset.py` — Resizing utility for processed slices
+  - `ACL_Training_Improved.ipynb` / `ACL_Training_Improved(ran on colab).ipynb` — Training notebook (local + Colab outputs)
+  - `ACL_Training_Colab.ipynb` — Colab-specific training notebook
+
+### V4 — 2D CNN on Combined Data (`V4_2D_kaggle+RIMS/`)
+
+Final model combining both Kaggle and RIMS datasets for a larger, more diverse training set. Also explored multi-class classification.
+
+- **Architecture**: 2D CNN for combined dataset
+- **Input**: 2D slices (224×224)
+- **Dataset**: Combined Kaggle + RIMS data (~1195 samples in the combined set)
+- **Classification**: Binary (Tear vs No Tear) + experimental 3-class (No Tear / Partial / Complete)
+- **Key Files**:
+  - `ACL_Training_Combined.ipynb` / `ACL_Training_Combined(ran on colab).ipynb` — Binary classification training
+  - `ACL_Training_Combined_3classes.ipynb` — 3-class classification experiment
+  - `PNG_to_Prediction.ipynb` — Inference notebook for making predictions from PNG images
+  - `best_acl_model_combined.pth` — Best trained model (~17 MB)
+
+### Grad-CAM Visualizations (`Gradcam/`)
+
+Interpretability analysis using Gradient-weighted Class Activation Mapping to visualize which regions of the MRI the model focuses on for its predictions.
+
+- **Key Files**:
+  - `ACL_GradCAM_Visualization.ipynb` — Visualization notebook
+  - `gradcam_outputs/` — Generated heatmap overlays showing correct and incorrect predictions
+
+## 📊 Datasets
+
+### Kaggle Dataset (V1)
+- **Format**: 3D MRI volumes as `.pck` (pickle) files
+- **Organization**: `DATASET/MRI/vol01/` through `vol08/`
+- **Metadata**: `metadata.csv` with labels and ROI coordinates
+- **Classes**: 0 (No Tear), 1 (Partial Tear), 2 (Complete Tear)
+- **Stats**: 917 total samples, 736 available files
+
+### RIMS Hospital Dataset (V3)
+- **Source**: Clinical DICOM MRI scans from RIMS hospital
+- **Preprocessing**: DICOM → sagittal slice extraction → `.npz` compressed arrays
+- **Processed data**: `DATASET/processed_sagittal/` and `DATASET/processed_sagittal_resized/`
+
+### Combined Dataset (V4)
+- **Location**: `DATASET/combined/`
+- **Format**: `.npz` compressed NumPy arrays with 2D slices
+- **Size**: ~1195 `.npz` files + ~466 `.npy` files
+- **Metadata**: Separate `metadata.csv` within the combined directory
+- **Naming convention**: Files named as `{ID}_{DIAGNOSIS}.npz` (e.g., `001_ACL.npz`, `MRI_329637_NORMAL.npz`)
+
+**⚠️ Note**: The datasets are **NOT** included in this repository due to size and privacy concerns. You'll need to provide your own MRI data.
 
 ## 📁 Project Structure
 
 ```
 ACL-tears/
-├── ACL_Tear_Detection_Complete.ipynb  # Main training notebook
-├── dataset.py                          # Dataset class implementation
-├── requirements.txt                    # Python dependencies
-├── notebook/                           # Development notebooks
-│   ├── 03_dataset_pipeline.ipynb
-│   └── numpy_prac1.ipynb
-├── 04_test_dataset.ipynb              # Testing pipeline
-├── test_new_data.ipynb                # Inference on new data
-├── DATASET/                            # [NOT INCLUDED] MRI data
-├── acl_detector_model.pth             # [NOT INCLUDED] Trained model
-└── *.png                               # [NOT INCLUDED] Generated visualizations
+├── .gitignore                                # Git ignore rules
+├── .gitattributes                            # Git LFS & line ending config
+├── LICENSE                                   # MIT License
+├── README.md                                 # This file
+├── PROJECT_DOCUMENTATION.md                  # Detailed technical documentation
+│
+├── V1_3D_kaggle/                             # Version 1: 3D CNN on Kaggle data
+│   ├── ACL_Tear_Detection_Complete.ipynb     #   Main training notebook
+│   ├── acl_detector_model.pth               #   [GIT LFS] Trained model (~14 MB)
+│   └── training_history.png                  #   Training curves visualization
+│
+├── V3_2D_RIMS/                               # Version 3: 2D CNN on RIMS data
+│   ├── preprocess_dicom_dataset.py           #   DICOM preprocessing pipeline
+│   ├── resize_dataset.py                     #   Slice resizing utility
+│   ├── ACL_Training_Colab.ipynb              #   Colab training notebook
+│   ├── ACL_Training_Improved.ipynb           #   Improved training (local)
+│   └── ACL_Training_Improved(ran on colab).ipynb  # Improved training (Colab output)
+│
+├── V4_2D_kaggle+RIMS/                        # Version 4: 2D CNN on combined data
+│   ├── ACL_Training_Combined.ipynb           #   Combined training (local)
+│   ├── ACL_Training_Combined(ran on colab).ipynb  # Combined training (Colab output)
+│   ├── ACL_Training_Combined_3classes.ipynb  #   3-class classification experiment
+│   ├── PNG_to_Prediction.ipynb               #   Inference from PNG images
+│   └── best_acl_model_combined.pth           #   [GIT LFS] Best model (~17 MB)
+│
+├── Gradcam/                                  # GradCAM interpretability
+│   ├── ACL_GradCAM_Visualization.ipynb       #   Visualization notebook
+│   └── gradcam_outputs/                      #   Heatmap overlay images
+│
+├── DATASET/                                  # [NOT IN REPO] MRI data
+│   ├── MRI/                                  #   Original Kaggle data (vol01–vol08)
+│   ├── processed_sagittal/                   #   Processed RIMS sagittal slices
+│   ├── processed_sagittal_resized/           #   Resized sagittal slices
+│   └── combined/                             #   Combined dataset (.npz/.npy)
+│
+└── mri_env/                                  # [NOT IN REPO] Python virtual environment
 ```
 
 ## 🚀 Getting Started
@@ -65,13 +137,14 @@ ACL-tears/
 - Python 3.8+
 - CUDA-capable GPU (recommended) or CPU
 - 8GB+ RAM
+- Google Colab account (optional, for cloud training)
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/acl-tear-detection.git
-cd acl-tear-detection
+git clone https://github.com/ArnabDutta01/ACL-tears.git
+cd ACL-tears
 ```
 
 2. Create a virtual environment:
@@ -82,116 +155,61 @@ source mri_env/bin/activate  # On Windows: mri_env\Scripts\activate
 
 3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install torch torchvision numpy pandas scikit-learn scikit-image matplotlib seaborn pydicom
 ```
 
-### Dataset Setup
+### Running the Models
 
-1. Place your MRI dataset in the `DATASET/MRI/` folder
-2. Organize files in `vol01/` through `vol08/` subfolders
-3. Ensure `metadata.csv` contains the following columns:
-   - `examId`, `seriesNo`, `aclDiagnosis`, `kneeLR`
-   - `roiX`, `roiY`, `roiZ`, `roiHeight`, `roiWidth`, `roiDepth`
-   - `volumeFilename`
+Each version has its own directory with Jupyter notebooks. Open the desired notebook:
 
-### Training
-
-Open and run the main notebook:
 ```bash
-jupyter notebook ACL_Tear_Detection_Complete.ipynb
+# V1: 3D CNN
+jupyter notebook V1_3D_kaggle/ACL_Tear_Detection_Complete.ipynb
+
+# V3: 2D CNN (RIMS)
+jupyter notebook V3_2D_RIMS/ACL_Training_Improved.ipynb
+
+# V4: Combined model
+jupyter notebook V4_2D_kaggle+RIMS/ACL_Training_Combined.ipynb
 ```
 
-Or train programmatically by following the notebook cells step by step.
-
-## 📈 Results
-
-The model generates the following visualizations:
-- **Training History**: Loss and accuracy curves over epochs
-- **Confusion Matrix**: Classification performance on test set
-- **Predictions Visualization**: Sample predictions with confidence scores
-
-## 🔧 Key Components
-
-### Dataset Class (`dataset.py`)
-- Loads 3D MRI volumes from `.pck` files
-- Extracts Region of Interest (ROI) using metadata coordinates
-- Normalizes and resizes volumes to consistent dimensions
-- Returns PyTorch tensors ready for training
-
-### Model Features
-- Handles 3D medical imaging data
-- Early stopping to prevent overfitting
-- Learning rate scheduling (ReduceLROnPlateau)
-- Class imbalance handling with weighted loss
-
-## 📝 Usage Example
-
-```python
-import torch
-from dataset import KneeDataset
-import pandas as pd
-
-# Load metadata
-metadata = pd.read_csv('DATASET/MRI/metadata.csv')
-
-# Create dataset
-dataset = KneeDataset(metadata, 'DATASET/MRI')
-
-# Load trained model
-model = torch.load('acl_detector_model.pth')
-model.eval()
-
-# Make prediction
-sample, label = dataset[0]
-with torch.no_grad():
-    prediction = model(sample.unsqueeze(0))
-    print(f"Prediction: {prediction.item():.2%} confidence of ACL tear")
-```
+Or use Google Colab with the `(ran on colab)` notebook variants.
 
 ## 🛠️ Technologies Used
 
-- **PyTorch**: Deep learning framework
-- **NumPy**: Numerical computing
-- **Pandas**: Data manipulation
-- **scikit-image**: Image preprocessing
-- **scikit-learn**: Model evaluation metrics
-- **Matplotlib**: Visualization
-- **Jupyter**: Interactive development
+- **PyTorch** — Deep learning framework
+- **NumPy** — Numerical computing
+- **Pandas** — Data manipulation
+- **scikit-image** — Image preprocessing & resizing
+- **scikit-learn** — Model evaluation metrics
+- **Matplotlib / Seaborn** — Visualization
+- **pydicom** — DICOM file parsing (V3)
+- **Jupyter / Google Colab** — Interactive development
+- **Git LFS** — Large file storage for model weights
 
 ## ⚠️ Important Notes
 
-1. **Medical Disclaimer**: This is a research/educational project. Do NOT use for actual medical diagnosis without proper validation and regulatory approval.
+1. **Medical Disclaimer**: This is a research/educational project. Do **NOT** use for actual medical diagnosis without proper clinical validation and regulatory approval.
 
-2. **Data Privacy**: Never commit actual MRI data to version control. Ensure compliance with HIPAA and other medical data regulations.
+2. **Data Privacy**: Never commit actual MRI data to version control. Ensure compliance with HIPAA and medical data regulations.
 
-3. **Model Files**: The trained model (`*.pth`) is excluded from git due to size. Consider using Git LFS or cloud storage for sharing models.
+3. **Model Files**: Trained models (`.pth`) are tracked via Git LFS due to their size. Ensure Git LFS is installed before cloning.
 
-## 🔮 Future Improvements
-
-- [ ] Data augmentation (rotation, flipping)
-- [ ] Transfer learning with pre-trained 3D models
-- [ ] Multi-class classification (partial vs complete tears)
-- [ ] Attention mechanisms for interpretability
-- [ ] Cross-validation for robust evaluation
-- [ ] Deployment as a web service
+4. **Version Numbering**: V2 was an intermediate experiment that was not preserved. The project jumps from V1 directly to V3.
 
 ## 📄 License
 
-[Choose appropriate license - e.g., MIT, Apache 2.0]
+MIT License — see [LICENSE](LICENSE) for details.
 
-## 👥 Contributing
+## 👥 Author
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📧 Contact
-
-[Your Name/Contact Information]
+**ArnabDutta01**
 
 ## 🙏 Acknowledgments
 
-- MRI dataset source [if applicable]
-- Research papers that influenced this work
-- Open-source community
+- Kaggle MRI dataset contributors
+- RIMS (Regional Institute of Medical Sciences) for clinical MRI data
+- Open-source community for PyTorch, scikit-learn, and related libraries
 
 ---
 

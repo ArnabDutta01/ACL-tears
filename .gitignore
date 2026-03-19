@@ -1,2 +1,69 @@
-DATASET/MRI/metadata.csv
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ========================
+# Virtual Environment
+# ========================
+mri_env/
+venv/
+.env/
+env/
+
+# ========================
+# Jupyter Notebook
+# ========================
+.ipynb_checkpoints/
+
+# ========================
+# Dataset & MRI Files
+# ========================
+DATASET/
 *.pck
+*.npy
+*.npz
+*.dcm
+*.dicom
+
+# ========================
+# Trained Model Weights
+# ========================
+# Model files are tracked via Git LFS (see .gitattributes)
+# If NOT using Git LFS, uncomment the lines below:
+# *.pth
+# *.pt
+# *.onnx
+
+# ========================
+# Generated Visualizations
+# ========================
+# Keeping visualization PNGs in the repo for reference
+# Uncomment below to exclude them:
+# *.png
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Misc
+# ========================
+*.log
+*.tmp
+*.bak

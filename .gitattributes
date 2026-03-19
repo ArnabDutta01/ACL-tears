@@ -1,3 +1,35 @@
+# ========================
+# Line Endings
+# ========================
 * text=auto eol=lf
-*.ipynb text eol=lf
+
+# Source code
 *.py text eol=lf
+*.ipynb text eol=lf
+*.md text eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# ========================
+# Git LFS — Large File Storage
+# ========================
+# Trained model weights
+*.pth filter=lfs diff=lfs merge=lfs -text
+
+# Binary image files
+*.png binary
+*.jpg binary
+*.jpeg binary
+
+# Data files (in case any are tracked)
+*.npy filter=lfs diff=lfs merge=lfs -text
+*.npz filter=lfs diff=lfs merge=lfs -text
+*.pck filter=lfs diff=lfs merge=lfs -text
+
+# ========================
+# Notebooks — treat as text for better diffs
+# ========================
+*.ipynb linguist-language=Python
