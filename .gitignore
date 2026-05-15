@@ -32,18 +32,9 @@ DATASET/
 # ========================
 # Trained Model Weights
 # ========================
-# Model files are tracked via Git LFS (see .gitattributes)
-# If NOT using Git LFS, uncomment the lines below:
-# *.pth
-# *.pt
-# *.onnx
-
-# ========================
-# Generated Visualizations
-# ========================
-# Keeping visualization PNGs in the repo for reference
-# Uncomment below to exclude them:
-# *.png
+# Model .pth files are tracked via Git LFS (see .gitattributes)
+# Unzipped weight files should not be committed:
+*.pth
 
 # ========================
 # IDE / Editor

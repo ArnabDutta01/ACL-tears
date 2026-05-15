@@ -1,216 +1,258 @@
-# ACL Tear Detection from Knee MRI Scans
+# 🏥 MRI Ligament Tear Prediction
 
-A deep learning project that uses Convolutional Neural Networks (CNNs) to automatically detect Anterior Cruciate Ligament (ACL) tears from knee MRI scans. The project evolved through **three model versions** (V1, V3, V4), progressively improving data sources, preprocessing approaches, and classification strategies.
+![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)
+![EfficientNet](https://img.shields.io/badge/Backbone-EfficientNet--B0-00C853)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Dataset](https://img.shields.io/badge/Dataset-Stanford%20MRNet-orange)
 
-## 🎯 Project Overview
+> **Multi-task deep learning for automated ACL tear, meniscus tear, and abnormality detection
+> from knee MRI scans — achieving 0.929 AUC on the Stanford MRNet benchmark.**
 
-This project implements a medical imaging AI system that classifies knee MRI scans to detect ACL tears. The system evolved across multiple iterations:
+This project implements an MRNet-inspired multi-view, multi-task architecture using
+EfficientNet-B0 with per-view max-pooling. The final model was selected after a
+systematic comparison of **4 architectural variants** evaluating backbone capacity
+(B0 vs B1) and aggregation strategy (max-pool vs attention mechanisms).
 
-| Version | Approach | Dataset | Input Type | Classification |
-|---------|----------|---------|------------|----------------|
-| **V1** | 3D CNN | Kaggle (`.pck` files) | 3D MRI volumes (16×128×128) | Binary (Tear vs No Tear) |
-| **V3** | 2D CNN | RIMS Hospital (DICOM → `.npz`) | 2D sagittal slices (224×224) | Binary (Tear vs No Tear) |
-| **V4** | 2D CNN | Combined (Kaggle + RIMS) | 2D slices (224×224) | Binary + 3-class |
+---
 
-> **Note**: V2 was an intermediate experimental iteration that was not retained.
+## 🔬 Key Results
 
-## 🏗️ Model Versions
+### Best Model: V16 (EfficientNet-B0 + Max-Pool)
 
-### V1 — 3D CNN on Kaggle Data (`V1_3D_kaggle/`)
+| MRI View | ACL Tear AUC | Meniscus Tear AUC | Abnormality AUC |
+|----------|:------------:|:-----------------:|:---------------:|
+| Sagittal | 0.929 | 0.818 | 0.801 |
+| Coronal  | 0.896 | 0.793 | 0.842 |
+| Axial    | 0.872 | 0.761 | 0.789 |
+| **Combined (3-view)** | **0.941** | **0.832** | **0.856** |
 
-The original model using 3D convolutions to process volumetric MRI data.
+### Architecture Comparison
 
-- **Architecture**: Custom 3D CNN with 4 convolutional blocks (32 → 64 → 128 → 256 filters)
-- **Input**: 3D MRI volumes resized to 16×128×128, loaded from `.pck` files
-- **Dataset**: 917 MRI scans (736 available), sourced from Kaggle
-- **Training**: Binary classification (Tear vs No Tear) with BCE loss, Adam optimizer, early stopping
-- **Key Files**:
-  - `ACL_Tear_Detection_Complete.ipynb` — Main training notebook
-  - `acl_detector_model.pth` — Trained model weights (~14 MB)
-  - `training_history.png` — Training curves
+| Model | Architecture | ACL AUC | Overfit Gap | Verdict |
+|-------|-------------|:-------:|:-----------:|---------|
+| **V16** | EfficientNet-B0 + MaxPool | **0.929** | 5–6% | ✅ **Best overall** — stable, generalizes well |
+| V17 | EfficientNet-B0 + Slice Attention | 0.937 | 10–15% | ⚠️ Highest peak but val loss diverges |
+| V18 | EfficientNet-B0 + Block Attention | 0.920 | 8–10% | Moderate — attention adds complexity without benefit |
+| B1 | EfficientNet-B1 + MaxPool | 0.874 | >10% | ❌ Larger backbone overfits on this dataset size |
 
-### V3 — 2D CNN on RIMS Hospital Data (`V3_2D_RIMS/`)
+**Key Findings:**
+- **B0 > B1**: The smaller backbone generalizes better with ~1,130 patients
+- **Max-Pool > Attention**: Simpler aggregation is more stable; attention mechanisms overfit
+- **Multi-task learning** improves all tasks through shared feature extraction
 
-Shifted to 2D approach using real clinical DICOM data from RIMS (Regional Institute of Medical Sciences) hospital.
+---
 
-- **Architecture**: 2D CNN (likely ResNet-based / transfer learning)
-- **Input**: 2D sagittal MRI slices (224×224), preprocessed from DICOM format
-- **Dataset**: RIMS hospital MRI scans, converted from DICOM to `.npz` format
-- **Preprocessing**: Custom pipeline to extract and resize sagittal slices from DICOM series
-- **Key Files**:
-  - `preprocess_dicom_dataset.py` — DICOM to `.npz` preprocessing pipeline
-  - `resize_dataset.py` — Resizing utility for processed slices
-  - `ACL_Training_Improved.ipynb` / `ACL_Training_Improved(ran on colab).ipynb` — Training notebook (local + Colab outputs)
-  - `ACL_Training_Colab.ipynb` — Colab-specific training notebook
+## 📊 Performance Visualizations
 
-### V4 — 2D CNN on Combined Data (`V4_2D_kaggle+RIMS/`)
+<table>
+<tr>
+<td><img src="results/best_auc_summary_bar.png" alt="Best AUC Summary" width="400"/></td>
+<td><img src="results/auc_overlay_4models.png" alt="AUC Training Curves" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Best validation AUC by task and model</em></td>
+<td align="center"><em>ACL AUC training curves — all models</em></td>
+</tr>
+<tr>
+<td><img src="results/overfit_gap_comparison.png" alt="Overfitting Analysis" width="400"/></td>
+<td><img src="results/confusion_matrix_v16.png" alt="Confusion Matrix" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Train-val gap analysis (overfitting)</em></td>
+<td align="center"><em>V16 confusion matrices (3 tasks)</em></td>
+</tr>
+</table>
 
-Final model combining both Kaggle and RIMS datasets for a larger, more diverse training set. Also explored multi-class classification.
+> See [`results/`](results/) for all 7 comparison plots.
 
-- **Architecture**: 2D CNN for combined dataset
-- **Input**: 2D slices (224×224)
-- **Dataset**: Combined Kaggle + RIMS data (~1195 samples in the combined set)
-- **Classification**: Binary (Tear vs No Tear) + experimental 3-class (No Tear / Partial / Complete)
-- **Key Files**:
-  - `ACL_Training_Combined.ipynb` / `ACL_Training_Combined(ran on colab).ipynb` — Binary classification training
-  - `ACL_Training_Combined_3classes.ipynb` — 3-class classification experiment
-  - `PNG_to_Prediction.ipynb` — Inference notebook for making predictions from PNG images
-  - `best_acl_model_combined.pth` — Best trained model (~17 MB)
+---
 
-### Grad-CAM Visualizations (`Gradcam/`)
+## 🏗️ Architecture
 
-Interpretability analysis using Gradient-weighted Class Activation Mapping to visualize which regions of the MRI the model focuses on for its predictions.
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MRI Volume Input                     │
+│              (S slices × 256 × 256 pixels)              │
+└────────────┬──────────────┬──────────────┬──────────────┘
+             │              │              │
+      ┌──────▼──────┐ ┌────▼────┐ ┌───────▼──────┐
+      │  Sagittal   │ │ Coronal │ │    Axial     │
+      │   Model     │ │  Model  │ │    Model     │
+      └──────┬──────┘ └────┬────┘ └───────┬──────┘
+             │              │              │
+    ┌────────▼────────────────────────────▼────────┐
+    │        Each Per-View Model (identical):       │
+    │                                               │
+    │  EfficientNet-B0 (pretrained ImageNet)        │
+    │       ↓ per-slice feature extraction          │
+    │  Global Average Pool → (S, 1280)              │
+    │       ↓ max-pool across slices                │
+    │  Volume Feature → (1, 1280)                   │
+    │       ↓ dropout (0.3)                         │
+    │  ┌──────────┬────────────┬──────────────┐     │
+    │  │ ACL Head │ Meniscus   │ Abnormality  │     │
+    │  │ (1280→2) │ Head(1280→2)│ Head(1280→2) │     │
+    │  └────┬─────┴─────┬──────┴──────┬───────┘     │
+    └───────┼───────────┼─────────────┼─────────────┘
+            │           │             │
+    ┌───────▼───────────▼─────────────▼─────────────┐
+    │     Logistic Regression View Combination       │
+    │              (MRNet-style)                     │
+    └───────────────────┬───────────────────────────┘
+                        ▼
+              Final Predictions:
+         ACL | Meniscus | Abnormality
+```
 
-- **Key Files**:
-  - `ACL_GradCAM_Visualization.ipynb` — Visualization notebook
-  - `gradcam_outputs/` — Generated heatmap overlays showing correct and incorrect predictions
+**Design based on:** [Bien et al. 2018 — MRNet (PLOS Medicine)](https://stanfordmlgroup.github.io/projects/mrnet/)
 
-## 📊 Datasets
+---
 
-### Kaggle Dataset (V1)
-- **Format**: 3D MRI volumes as `.pck` (pickle) files
-- **Organization**: `DATASET/MRI/vol01/` through `vol08/`
-- **Metadata**: `metadata.csv` with labels and ROI coordinates
-- **Classes**: 0 (No Tear), 1 (Partial Tear), 2 (Complete Tear)
-- **Stats**: 917 total samples, 736 available files
+## ⚡ Quick Start
 
-### RIMS Hospital Dataset (V3)
-- **Source**: Clinical DICOM MRI scans from RIMS hospital
-- **Preprocessing**: DICOM → sagittal slice extraction → `.npz` compressed arrays
-- **Processed data**: `DATASET/processed_sagittal/` and `DATASET/processed_sagittal_resized/`
+### Prerequisites
 
-### Combined Dataset (V4)
-- **Location**: `DATASET/combined/`
-- **Format**: `.npz` compressed NumPy arrays with 2D slices
-- **Size**: ~1195 `.npz` files + ~466 `.npy` files
-- **Metadata**: Separate `metadata.csv` within the combined directory
-- **Naming convention**: Files named as `{ID}_{DIAGNOSIS}.npz` (e.g., `001_ACL.npz`, `MRI_329637_NORMAL.npz`)
+- Python 3.8+ with CUDA-capable GPU (recommended)
+- ~16 GB RAM, ~4 GB VRAM
 
-**⚠️ Note**: The datasets are **NOT** included in this repository due to size and privacy concerns. You'll need to provide your own MRI data.
+### Installation
+
+```bash
+git clone https://github.com/ArnabDutta01/mri-ligament-tear-prediction.git
+cd mri-ligament-tear-prediction
+python -m venv venv
+source venv/bin/activate    # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Training
+
+```bash
+python src/training/train.py \
+  --data_dir ./data/mrnet_all \
+  --output_dir ./outputs \
+  --epochs 35 \
+  --lr 1e-4 \
+  --patience 10
+```
+
+### Evaluation Only (with pretrained weights)
+
+```bash
+# Unzip weights
+cd weights && unzip "*.zip" && cd ..
+
+# Run evaluation
+python src/training/evaluate.py
+```
+
+> ⚠️ **Dataset not included.** The Stanford MRNet dataset must be obtained from the
+> [official source](https://stanfordmlgroup.github.io/competitions/mrnet/).
+
+---
 
 ## 📁 Project Structure
 
 ```
-ACL-tears/
-├── .gitignore                                # Git ignore rules
-├── .gitattributes                            # Git LFS & line ending config
-├── LICENSE                                   # MIT License
-├── README.md                                 # This file
-├── PROJECT_DOCUMENTATION.md                  # Detailed technical documentation
+mri-ligament-tear-prediction/
+├── README.md                          # This file
+├── LICENSE                            # MIT License
+├── requirements.txt                   # Python dependencies
 │
-├── V1_3D_kaggle/                             # Version 1: 3D CNN on Kaggle data
-│   ├── ACL_Tear_Detection_Complete.ipynb     #   Main training notebook
-│   ├── acl_detector_model.pth               #   [GIT LFS] Trained model (~14 MB)
-│   └── training_history.png                  #   Training curves visualization
+├── src/                               # Source code
+│   ├── models/
+│   │   └── mrnet_multitask.py         # MRNetPerView model definition
+│   ├── training/
+│   │   ├── train.py                   # Training script (CLI, HPC-ready)
+│   │   └── evaluate.py               # Evaluation-only script
+│   └── visualization/
+│       └── generate_comparison_graphs.py  # Comparison plot generator
 │
-├── V3_2D_RIMS/                               # Version 3: 2D CNN on RIMS data
-│   ├── preprocess_dicom_dataset.py           #   DICOM preprocessing pipeline
-│   ├── resize_dataset.py                     #   Slice resizing utility
-│   ├── ACL_Training_Colab.ipynb              #   Colab training notebook
-│   ├── ACL_Training_Improved.ipynb           #   Improved training (local)
-│   └── ACL_Training_Improved(ran on colab).ipynb  # Improved training (Colab output)
+├── notebooks/                         # Jupyter notebooks
+│   ├── v16_b0_maxpool_training.ipynb           # V16 training (best model)
+│   ├── v17_b0_slice_attention_training.ipynb   # V17 training (attention variant)
+│   ├── v18_b0_block_attention_training.ipynb   # V18 training (gated attention)
+│   └── gradcam_visualization.ipynb             # GradCAM interpretability
 │
-├── V4_2D_kaggle+RIMS/                        # Version 4: 2D CNN on combined data
-│   ├── ACL_Training_Combined.ipynb           #   Combined training (local)
-│   ├── ACL_Training_Combined(ran on colab).ipynb  # Combined training (Colab output)
-│   ├── ACL_Training_Combined_3classes.ipynb  #   3-class classification experiment
-│   ├── PNG_to_Prediction.ipynb               #   Inference from PNG images
-│   └── best_acl_model_combined.pth           #   [GIT LFS] Best model (~17 MB)
+├── results/                           # Performance visualizations
+│   ├── auc_comparison_4models.png     # Per-model AUC curves
+│   ├── auc_overlay_4models.png        # All models on one plot
+│   ├── val_loss_comparison_4models.png
+│   ├── multitask_auc_comparison.png   # ACL / Meniscus / Abnormality
+│   ├── best_auc_summary_bar.png       # Summary bar chart
+│   ├── overfit_gap_comparison.png     # Overfitting analysis
+│   └── confusion_matrix_v16.png       # V16 confusion matrices
 │
-├── Gradcam/                                  # GradCAM interpretability
-│   ├── ACL_GradCAM_Visualization.ipynb       #   Visualization notebook
-│   └── gradcam_outputs/                      #   Heatmap overlay images
+├── weights/                           # Pretrained model weights (Git LFS)
+│   ├── best_v16_sagittal.pth.zip
+│   ├── best_v16_coronal.pth.zip
+│   └── best_v16_axial.pth.zip
 │
-├── DATASET/                                  # [NOT IN REPO] MRI data
-│   ├── MRI/                                  #   Original Kaggle data (vol01–vol08)
-│   ├── processed_sagittal/                   #   Processed RIMS sagittal slices
-│   ├── processed_sagittal_resized/           #   Resized sagittal slices
-│   └── combined/                             #   Combined dataset (.npz/.npy)
+├── docs/                              # Documentation
+│   ├── TECHNICAL_REPORT.md            # Full technical report
+│   ├── MODEL_EVOLUTION.md             # 18-version iteration history
+│   └── User_Manual.docx              # End-user guide
 │
-└── mri_env/                                  # [NOT IN REPO] Python virtual environment
+└── archive/                           # Experimental history (V1–V15)
+    ├── README.md                      # Version catalog
+    ├── old_versions/                  # All 18 version folders
+    └── old_notebooks/                 # Deprecated notebooks
 ```
 
-## 🚀 Getting Started
+---
 
-### Prerequisites
+## 🧪 Model Evolution
 
-- Python 3.8+
-- CUDA-capable GPU (recommended) or CPU
-- 8GB+ RAM
-- Google Colab account (optional, for cloud training)
+This project evolved through **18 experimental iterations**. The final 4 models
+represent a controlled comparison of backbone capacity and aggregation strategy.
 
-### Installation
+| Phase | Versions | Focus |
+|-------|----------|-------|
+| Initial Exploration | V1, V3, V4 | 3D→2D transition, dataset building |
+| MRNet Adoption | V6–V9 | Per-view architecture, EfficientNet backbone |
+| Multi-Task Optimization | V10–V15 | Multi-task heads, attention experiments, regularization |
+| **Final Comparison** | **V16–V18, B1** | **B0 vs B1, max-pool vs attention** |
 
-1. Clone the repository:
-```bash
-git clone https://github.com/ArnabDutta01/ACL-tears.git
-cd ACL-tears
-```
+> 📖 Full version history: [`docs/MODEL_EVOLUTION.md`](docs/MODEL_EVOLUTION.md)
+> | Archived code: [`archive/`](archive/)
 
-2. Create a virtual environment:
-```bash
-python -m venv mri_env
-source mri_env/bin/activate  # On Windows: mri_env\Scripts\activate
-```
+---
 
-3. Install dependencies:
-```bash
-pip install torch torchvision numpy pandas scikit-learn scikit-image matplotlib seaborn pydicom
-```
+## 🛠️ Tech Stack
 
-### Running the Models
+| Component | Technology |
+|-----------|-----------|
+| **Deep Learning** | PyTorch, torchvision |
+| **Backbone** | EfficientNet-B0 (ImageNet pretrained) |
+| **Evaluation** | scikit-learn (AUC, F1, confusion matrix) |
+| **Visualization** | Matplotlib, Seaborn |
+| **Medical Imaging** | pydicom, OpenCV |
+| **Training** | Google Colab (GPU), HPC/SLURM |
+| **Version Control** | Git, Git LFS (model weights) |
 
-Each version has its own directory with Jupyter notebooks. Open the desired notebook:
-
-```bash
-# V1: 3D CNN
-jupyter notebook V1_3D_kaggle/ACL_Tear_Detection_Complete.ipynb
-
-# V3: 2D CNN (RIMS)
-jupyter notebook V3_2D_RIMS/ACL_Training_Improved.ipynb
-
-# V4: Combined model
-jupyter notebook V4_2D_kaggle+RIMS/ACL_Training_Combined.ipynb
-```
-
-Or use Google Colab with the `(ran on colab)` notebook variants.
-
-## 🛠️ Technologies Used
-
-- **PyTorch** — Deep learning framework
-- **NumPy** — Numerical computing
-- **Pandas** — Data manipulation
-- **scikit-image** — Image preprocessing & resizing
-- **scikit-learn** — Model evaluation metrics
-- **Matplotlib / Seaborn** — Visualization
-- **pydicom** — DICOM file parsing (V3)
-- **Jupyter / Google Colab** — Interactive development
-- **Git LFS** — Large file storage for model weights
+---
 
 ## ⚠️ Important Notes
 
-1. **Medical Disclaimer**: This is a research/educational project. Do **NOT** use for actual medical diagnosis without proper clinical validation and regulatory approval.
+1. **Medical Disclaimer**: This is a research project. Do **not** use for clinical
+   diagnosis without proper validation and regulatory approval.
+2. **Data Privacy**: MRI data is excluded from the repository. Ensure HIPAA compliance
+   when working with medical imaging data.
+3. **Model Weights**: `.pth` files are tracked via Git LFS. Ensure Git LFS is installed
+   before cloning.
 
-2. **Data Privacy**: Never commit actual MRI data to version control. Ensure compliance with HIPAA and medical data regulations.
+---
 
-3. **Model Files**: Trained models (`.pth`) are tracked via Git LFS due to their size. Ensure Git LFS is installed before cloning.
+## 📚 References
 
-4. **Version Numbering**: V2 was an intermediate experiment that was not preserved. The project jumps from V1 directly to V3.
+- Bien, N., et al. (2018). "Deep-learning-assisted diagnosis for knee magnetic resonance imaging." *PLOS Medicine*. [Link](https://doi.org/10.1371/journal.pmed.1002699)
+- Tan, M., & Le, Q. (2019). "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks." *ICML*. [Link](https://arxiv.org/abs/1905.11946)
 
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
-## 👥 Author
+## 👤 Author
 
-**ArnabDutta01**
-
-## 🙏 Acknowledgments
-
-- Kaggle MRI dataset contributors
-- RIMS (Rajendra Institute of Medical Sciences) for clinical MRI data
-- Open-source community for PyTorch, scikit-learn, and related libraries
-
----
-
-**Note**: This project is for educational and research purposes only.
+**[ArnabDutta01](https://github.com/ArnabDutta01)**
